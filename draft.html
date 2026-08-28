@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sack &amp; Pack Draft Assistant</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#161d2e; --panel2:#1d2537; --border:#2b3650;
+    --text:#e8ecf6; --muted:#8b96b3; --accent:#5eead4; --accent2:#f0a95e;
+    --danger:#f26d6d; --ok:#7dd87d; --qb:#e07a5f; --rb:#7dd87d; --wr:#5eead4;
+    --te:#f0a95e; --k:#b5a8ff; --def:#8b96b3; --idp:#f2a7d0;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  header{padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20;}
+  header h1{margin:0;font-size:1.25rem;}
+  header .sub{color:var(--muted);font-size:0.85rem;margin-top:2px;}
+  .layout{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px;max-width:1500px;margin:0 auto;}
+  @media (max-width:980px){.layout{grid-template-columns:1fr;}}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;}
+  .panel h2{margin:0 0 10px;font-size:1rem;color:var(--accent);}
+  .roster-slot{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:6px;margin-bottom:4px;background:var(--panel2);font-size:0.85rem;}
+  .roster-slot.filled{background:#1a2f28;}
+  .roster-slot .label{color:var(--muted);width:60px;flex-shrink:0;}
+  .roster-slot .who{flex:1;}
+  .roster-slot button{background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.75rem;}
+  .pill{display:inline-block;padding:1px 7px;border-radius:20px;font-size:0.7rem;font-weight:700;letter-spacing:0.03em;}
+  .pill.QB{background:var(--qb);color:#2a1710;}
+  .pill.RB{background:var(--rb);color:#0d2410;}
+  .pill.WR{background:var(--wr);color:#062421;}
+  .pill.TE{background:var(--te);color:#2a1a06;}
+  .pill.K{background:var(--k);color:#1a1440;}
+  .pill.DEF{background:var(--def);color:#0a0e18;}
+  .pill.IDP{background:var(--idp);color:#3a0f28;}
+  .rec-card{border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;background:var(--panel2);display:flex;align-items:center;gap:10px;}
+  .rec-card .name{font-weight:600;flex:1;}
+  .rec-card .tag{font-size:0.7rem;color:var(--accent2);}
+  .rec-card button{background:var(--accent);border:none;color:#062421;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem;}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+  input[type=text]{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:0.9rem;}
+  #search{flex:1;min-width:180px;}
+  .postab{background:var(--panel2);border:1px solid var(--border);color:var(--muted);padding:6px 10px;border-radius:6px;cursor:pointer;font-size:0.8rem;}
+  .postab.active{background:var(--accent);color:#062421;border-color:var(--accent);font-weight:700;}
+  table{width:100%;border-collapse:collapse;font-size:0.87rem;}
+  thead th{position:sticky;top:0;background:var(--panel);text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);color:var(--muted);cursor:pointer;user-select:none;}
+  tbody td{padding:7px 6px;border-bottom:1px solid #202940;}
+  tbody tr:hover{background:#1a2236;}
+  tbody tr.taken{opacity:0.35;}
+  tbody tr.mine{background:#122a1f;}
+  .btnrow{display:flex;gap:4px;}
+  .btn{border:none;padding:4px 8px;border-radius:5px;font-size:0.72rem;cursor:pointer;font-weight:600;}
+  .btn.me{background:var(--ok);color:#0a1f0a;}
+  .btn.other{background:#3a4258;color:var(--text);}
+  .btn.undo{background:var(--danger);color:#2a0a0a;}
+  .table-wrap{max-height:70vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px;}
+  .small{font-size:0.78rem;color:var(--muted);}
+  .banner{background:#2a2013;border:1px solid #5c4a1e;color:#f0d090;padding:10px 12px;border-radius:8px;font-size:0.82rem;margin-bottom:16px;}
+  .stat-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+  .stat{background:var(--panel2);border-radius:8px;padding:8px 12px;font-size:0.8rem;text-align:center;flex:1;min-width:70px;}
+  .stat b{display:block;font-size:1.1rem;color:var(--accent);}
+  .reset{background:none;border:1px solid var(--danger);color:var(--danger);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem;}
+  .rankedit{width:44px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font-size:0.78rem;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏈 Sack &amp; Pack — Draft Assistant</h1>
+  <div class="sub">Yahoo League #160713 · 12 teams · Live Standard (snake) Draft · PPR + IDP · Tells you who to pick — you make the actual pick in Yahoo</div>
+</header>
+
+<div style="max-width:1500px;margin:16px auto 0;padding:0 16px;">
+<div class="banner">
+  ⚠️ Player rankings are a best-effort pre-draft snapshot (assembled from available scoring/consensus data) — they are <b>not</b> guaranteed current for August 2026 (injuries, depth-chart battles, late trades may not be reflected). Double-check anyone questionable against Yahoo's own board. You can edit any player's rank inline, or add a missing player at the bottom of the list.
+</div>
+</div>
+
+<div class="layout">
+  <div>
+    <div class="panel">
+      <h2>My Roster</h2>
+      <div id="roster"></div>
+      <button class="reset" id="resetBtn" style="margin-top:10px;width:100%;">Reset Entire Draft</button>
+    </div>
+    <div class="panel">
+      <h2>Draft Progress</h2>
+      <div class="stat-row">
+        <div class="stat"><b id="statTaken">0</b>Off board</div>
+        <div class="stat"><b id="statMine">0</b>Mine</div>
+        <div class="stat"><b id="statRound">1</b>Round</div>
+      </div>
+      <div class="small" id="scarcity"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>Recommended Picks</h2>
+      <div id="recs"></div>
+    </div>
+
+    <div class="panel">
+      <div class="toolbar">
+        <input type="text" id="search" placeholder="Search player or team..." />
+        <button class="postab active" data-pos="ALL">ALL</button>
+        <button class="postab" data-pos="QB">QB</button>
+        <button class="postab" data-pos="RB">RB</button>
+        <button class="postab" data-pos="WR">WR</button>
+        <button class="postab" data-pos="TE">TE</button>
+        <button class="postab" data-pos="K">K</button>
+        <button class="postab" data-pos="DEF">DEF</button>
+        <button class="postab" data-pos="IDP">IDP</button>
+        <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);">
+          <input type="checkbox" id="hideTaken" /> hide drafted
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th data-sort="rank">Rank</th>
+              <th data-sort="name">Player</th>
+              <th data-sort="pos">Pos</th>
+              <th data-sort="team">Team</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="small" style="margin-top:8px;">
+        <button class="reset" id="addPlayerBtn" style="border-color:var(--accent);color:var(--accent);">+ Add missing player</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- League config (Sack & Pack, Yahoo #160713) ---------- */
+const SLOT_CONFIG = [
+  {key:'QB', label:'QB', count:1, eligible:['QB']},
+  {key:'RB', label:'RB', count:2, eligible:['RB']},
+  {key:'WR', label:'WR', count:2, eligible:['WR']},
+  {key:'TE', label:'TE', count:1, eligible:['TE']},
+  {key:'FLEX1', label:'W/R/T', count:1, eligible:['RB','WR','TE']},
+  {key:'FLEX2', label:'W/R/T', count:1, eligible:['RB','WR','TE']},
+  {key:'K', label:'K', count:1, eligible:['K']},
+  {key:'DEF', label:'DEF', count:1, eligible:['DEF']},
+  {key:'IDP', label:'D', count:1, eligible:['IDP']},
+  {key:'BN1', label:'BN', count:1, eligible:['QB','RB','WR','TE','K','DEF','IDP']},
+  {key:'BN2', label:'BN', count:1, eligible:['QB','RB','WR','TE','K','DEF','IDP']},
+  {key:'BN3', label:'BN', count:1, eligible:['QB','RB','WR','TE','K','DEF','IDP']},
+  {key:'BN4', label:'BN', count:1, eligible:['QB','RB','WR','TE','K','DEF','IDP']},
+];
+const TOTAL_TEAMS = 12;
+
+/* Base value curve tuned loosely to this league's scoring:
+   - 1 PPR, 6pt pass/rush/rec TD, 15yd/pt passing (rich), -3 sack, -2 INT -> elevates elite low-sack mobile QBs
+   - Only 1 QB slot (no superflex) -> QB not scarce beyond the top tier
+   - 2 WR + 2 RB + 2 FLEX -> RB/WR remain the backbone
+   - TE has a real cliff after the top few
+   - DST scoring is very high-variance (up to 20 or -7/wk) -> slightly more separation than usual
+   - Single flex IDP slot -> only ~12-15 IDP carry real starting value */
+const CURVE = {
+  QB:  {base:88, decay:15, floor:8},
+  RB:  {base:99, decay:11, floor:5},
+  WR:  {base:98, decay:10, floor:5},
+  TE:  {base:90, decay:19, floor:4},
+  K:   {base:22, decay:2,  floor:8},
+  DEF: {base:40, decay:6,  floor:8},
+  IDP: {base:55, decay:8,  floor:3},
+};
+function baseValue(pos, posRank){
+  const c = CURVE[pos];
+  return Math.max(c.floor, c.base - c.decay*Math.log(posRank+1));
+}
+
+/* ---------- Player pool (editable) ---------- */
+/* rank = positional rank (1 = best at that position). Edit inline anytime. */
+let nextId = 1;
+function mk(name,pos,team,rank){ return {id:nextId++, name, pos, team, rank}; }
+
+const RAW = {
+QB:["Josh Allen|BUF","Lamar Jackson|BAL","Jayden Daniels|WAS","Joe Burrow|CIN","Patrick Mahomes|KC","Jalen Hurts|PHI","Justin Herbert|LAC","Bo Nix|DEN","Dak Prescott|DAL","Kyler Murray|ARI","Brock Purdy|SF","C.J. Stroud|HOU","Baker Mayfield|TB","Drake Maye|NE","Jordan Love|GB","Caleb Williams|CHI","Matthew Stafford|LAR","Trevor Lawrence|JAX","Jared Goff|DET","Tua Tagovailoa|MIA","Bryce Young|CAR","Michael Penix Jr.|ATL","Sam Darnold|SEA","Justin Fields|NYJ"],
+RB:["Jahmyr Gibbs|DET","Bijan Robinson|ATL","Jonathan Taylor|IND","De'Von Achane|MIA","Ashton Jeanty|LV","Saquon Barkley|PHI","Christian McCaffrey|SF","James Cook|BUF","Derrick Henry|BAL","Bucky Irving|TB","Josh Jacobs|GB","Kyren Williams|LAR","Chase Brown|CIN","Omarion Hampton|LAC","Kenneth Walker III|SEA","Alvin Kamara|NO","Breece Hall|NYJ","James Conner|ARI","D'Andre Swift|CHI","TreVeyon Henderson|NE","Tony Pollard|TEN","Chuba Hubbard|CAR","Aaron Jones|MIN","Rhamondre Stevenson|NE","Javonte Williams|DAL","Jaylen Warren|PIT","Isiah Pacheco|KC","Brian Robinson Jr.|WAS","Tyjae Spears|TEN","Rachaad White|TB","Zach Charbonnet|SEA","Jerome Ford|CLE","Najee Harris|LAC","David Montgomery|DET","Tank Bigsby|JAX","Ray Davis|BUF","Jaylen Wright|MIA","Braelon Allen|NYJ","MarShawn Lloyd|GB","Ty Chandler|MIN"],
+WR:["Ja'Marr Chase|CIN","Puka Nacua|LAR","Jaxon Smith-Njigba|SEA","CeeDee Lamb|DAL","Amon-Ra St. Brown|DET","Malik Nabers|NYG","Nico Collins|HOU","A.J. Brown|NE","Justin Jefferson|MIN","Drake London|ATL","Brian Thomas Jr.|JAX","Ladd McConkey|LAC","Tyreek Hill|MIA","DK Metcalf|PIT","Terry McLaurin|WAS","Marvin Harrison Jr.|ARI","Davante Adams|LAR","Rome Odunze|CHI","Tee Higgins|CIN","Mike Evans|TB","Garrett Wilson|NYJ","Zay Flowers|BAL","Chris Olave|NO","DeVonta Smith|PHI","Xavier Worthy|KC","Jameson Williams|DET","Jerry Jeudy|CLE","Jordan Addison|MIN","Courtland Sutton|DEN","Rashee Rice|KC","Jayden Reed|GB","Keon Coleman|BUF","George Pickens|DAL","Calvin Ridley|TEN","Stefon Diggs|NE","Deebo Samuel Sr.|WAS","Khalil Shakir|BUF","Jauan Jennings|SF","Josh Downs|IND","Christian Kirk|HOU","Ricky Pearsall|SF","Tetairoa McMillan|CAR","Rashid Shaheed|NO","Jakobi Meyers|LV","Wan'Dale Robinson|NYG","Darnell Mooney|ATL","Romeo Doubs|GB","Adam Thielen|CAR","Diontae Johnson|CLE","Marquise Brown|KC"],
+TE:["Brock Bowers|LV","Trey McBride|ARI","Sam LaPorta|DET","Tyler Warren|IND","Colston Loveland|CHI","George Kittle|SF","Mark Andrews|BAL","Dallas Goedert|PHI","Tucker Kraft|GB","David Njoku|CLE","Evan Engram|DEN","Harold Fannin Jr.|CLE","Dalton Kincaid|BUF","Jonnu Smith|PIT","Cole Kmet|CHI","Pat Freiermuth|PIT","T.J. Hockenson|MIN","Zach Ertz|WAS","Hunter Henry|NE","Jake Ferguson|DAL","Dalton Schultz|HOU","Chig Okonkwo|TEN","Isaiah Likely|BAL","Brenton Strange|JAX"],
+K:["Brandon Aubrey|DAL","Chris Boswell|PIT","Cameron Dicker|LAC","Harrison Butker|KC","Ka'imi Fairbairn|HOU","Younghoe Koo|ATL","Jason Sanders|MIA","Tyler Bass|BUF","Jake Elliott|PHI","Wil Lutz|DEN","Evan McPherson|CIN","Joshua Karty|LAR","Matt Gay|WAS","Cairo Santos|CHI","Jake Moody|SF","Chase McLaughlin|TB"],
+DEF:["Seahawks D/ST|SEA","Texans D/ST|HOU","Rams D/ST|LAR","Broncos D/ST|DEN","Eagles D/ST|PHI","Steelers D/ST|PIT","Vikings D/ST|MIN","Ravens D/ST|BAL","Chargers D/ST|LAC","Packers D/ST|GB","Lions D/ST|DET","Bills D/ST|BUF","49ers D/ST|SF","Buccaneers D/ST|TB","Cowboys D/ST|DAL","Dolphins D/ST|MIA","Jets D/ST|NYJ","Chiefs D/ST|KC","Colts D/ST|IND","Bengals D/ST|CIN","Cardinals D/ST|ARI","Falcons D/ST|ATL","Commanders D/ST|WAS","Browns D/ST|CLE","Jaguars D/ST|JAX","Bears D/ST|CHI","Patriots D/ST|NE","Saints D/ST|NO","Titans D/ST|TEN","Raiders D/ST|LV","Panthers D/ST|CAR","Giants D/ST|NYG"],
+IDP:["Myles Garrett|CLE","Micah Parsons|GB","T.J. Watt|PIT","Fred Warner|SF","Roquan Smith|BAL","Zack Baun|PHI","Will Anderson Jr.|HOU","Nick Bosa|SF","Danielle Hunter|HOU","Maxx Crosby|LV","Kyle Hamilton|BAL","Patrick Surtain II|DEN","Derwin James|LAC","Antoine Winfield Jr.|TB","Trevon Diggs|DAL","Devin White|TB","Foyesade Oluokun|JAX","Demario Davis|NO","Zaire Franklin|IND","Bobby Okereke|NYG","Jordyn Brooks|MIA","Quay Walker|GB","Tremaine Edmunds|CHI","Jessie Bates III|CIN","Xavier McKinney|GB","Budda Baker|ARI","Justin Simmons|ATL","Minkah Fitzpatrick|PIT","Jaylon Johnson|CHI","Byron Young|LAR","Sonny Styles|ATL","Jalen Carter|PHI","Dexter Lawrence|NYG","Chris Jones|KC","Josh Allen (LB)|JAX","Matt Milano|BUF","Bobby Wagner|WAS","Harold Landry III|TEN","Azeez Ojulari|NYG","Yetur Gross-Matos|SF","Dre Greenlaw|SF","Nick Herbig|PIT","Denzel Ward|CLE","Marlon Humphrey|BAL","Jaire Alexander|GB","DeMarcus Lawrence|SEA","Rashan Gary|GB","Za'Darius Smith|DET","Brian Burns|NYG","Jalen Pitre|HOU","Kerby Joseph|DET"],
+};
+
+let players = [];
+for(const pos in RAW){
+  RAW[pos].forEach((s,i)=>{
+    const [name,team] = s.split('|');
+    players.push(mk(name,pos,team,i+1));
+  });
+}
+
+/* ---------- State ---------- */
+const STORAGE_KEY = 'sackpack-draft-160713-v1';
+let state = { status:{} }; // id -> 'me' | 'other'
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) state = JSON.parse(raw);
+  }catch(e){}
+}
+function saveState(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+}
+loadState();
+
+/* ---------- Derived helpers ---------- */
+function combinedValue(p){ return baseValue(p.pos, p.rank); }
+function isTaken(p){ return !!state.status[p.id]; }
+function myRoster(){ return players.filter(p=>state.status[p.id]==='me'); }
+
+function assignSlots(){
+  const mine = myRoster().sort((a,b)=>combinedValue(b)-combinedValue(a));
+  const slots = SLOT_CONFIG.map(s=>({...s, player:null}));
+  const used = new Set();
+  // fill exact-position (non-flex, non-bench) slots first
+  slots.forEach(slot=>{
+    if(slot.eligible.length>1) return;
+    const cand = mine.find(p=>!used.has(p.id) && slot.eligible.includes(p.pos));
+    if(cand){ slot.player = cand; used.add(cand.id); }
+  });
+  // fill flex slots
+  slots.filter(s=>s.eligible.length>1 && s.key.startsWith('FLEX')).forEach(slot=>{
+    const cand = mine.find(p=>!used.has(p.id) && slot.eligible.includes(p.pos));
+    if(cand){ slot.player = cand; used.add(cand.id); }
+  });
+  // fill bench with whatever's left
+  slots.filter(s=>s.key.startsWith('BN')).forEach(slot=>{
+    const cand = mine.find(p=>!used.has(p.id));
+    if(cand){ slot.player = cand; used.add(cand.id); }
+  });
+  const overflow = mine.filter(p=>!used.has(p.id));
+  return {slots, overflow};
+}
+
+function openNeedPositions(){
+  const {slots} = assignSlots();
+  const needs = new Set();
+  slots.forEach(s=>{ if(!s.player) s.eligible.forEach(e=>needs.add(e)); });
+  return needs;
+}
+
+/* ---------- Rendering ---------- */
+function renderRoster(){
+  const {slots, overflow} = assignSlots();
+  const el = document.getElementById('roster');
+  el.innerHTML = slots.map(s=>`
+    <div class="roster-slot ${s.player?'filled':''}">
+      <span class="label">${s.label}</span>
+      <span class="who">${s.player ? `<span class="pill ${s.player.pos}">${s.player.pos}</span> ${s.player.name}` : '<span style="color:var(--muted)">empty</span>'}</span>
+      ${s.player ? `<button onclick="undoPlayer(${s.player.id})">✕</button>` : ''}
+    </div>`).join('') +
+    overflow.map(p=>`
+    <div class="roster-slot filled">
+      <span class="label">BN+</span>
+      <span class="who"><span class="pill ${p.pos}">${p.pos}</span> ${p.name}</span>
+      <button onclick="undoPlayer(${p.id})">✕</button>
+    </div>`).join('');
+}
+
+function renderStats(){
+  const takenCount = Object.keys(state.status).length;
+  document.getElementById('statTaken').textContent = takenCount;
+  document.getElementById('statMine').textContent = myRoster().length;
+  document.getElementById('statRound').textContent = Math.min(15, Math.floor(takenCount/TOTAL_TEAMS)+1);
+
+  const needs = openNeedPositions();
+  const scarcityParts = [];
+  ['QB','RB','WR','TE','K','DEF','IDP'].forEach(pos=>{
+    const avail = players.filter(p=>p.pos===pos && !isTaken(p)).length;
+    if(needs.has(pos)) scarcityParts.push(`<b style="color:var(--accent2)">${pos}: ${avail} left (needed)</b>`);
+  });
+  document.getElementById('scarcity').innerHTML = scarcityParts.join(' &nbsp;·&nbsp; ') || 'All starting slots filled — grab best available / bench depth.';
+}
+
+function renderRecs(){
+  const needs = openNeedPositions();
+  const avail = players.filter(p=>!isTaken(p)).sort((a,b)=>combinedValue(b)-combinedValue(a));
+  const top = avail.slice(0,8);
+  const el = document.getElementById('recs');
+  el.innerHTML = top.map(p=>{
+    const fills = needs.has(p.pos);
+    return `<div class="rec-card">
+      <span class="pill ${p.pos}">${p.pos}</span>
+      <span class="name">${p.name} <span class="small">${p.team}</span></span>
+      ${fills ? `<span class="tag">fills need</span>` : ''}
+      <button onclick="draftPlayer(${p.id},'me')">Draft to Me</button>
+    </div>`;
+  }).join('');
+}
+
+let sortKey='rank', sortDir=1, activePos='ALL';
+function renderTable(){
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const hideTaken = document.getElementById('hideTaken').checked;
+  let list = players.filter(p=>{
+    if(activePos!=='ALL' && p.pos!==activePos) return false;
+    if(hideTaken && isTaken(p)) return false;
+    if(q && !(p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q))) return false;
+    return true;
+  });
+  list.sort((a,b)=>{
+    let av,bv;
+    if(sortKey==='rank'){ av=combinedValue(a); bv=combinedValue(b); return (bv-av)*sortDir*-1; }
+    if(sortKey==='name'){ av=a.name; bv=b.name; return av.localeCompare(bv)*sortDir; }
+    if(sortKey==='pos'){ av=a.pos; bv=b.pos; return av.localeCompare(bv)*sortDir; }
+    if(sortKey==='team'){ av=a.team; bv=b.team; return av.localeCompare(bv)*sortDir; }
+    return 0;
+  });
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = list.map(p=>{
+    const st = state.status[p.id];
+    const rowClass = st==='me' ? 'mine' : (st ? 'taken' : '');
+    let statusCell;
+    if(st==='me') statusCell = `<span class="small" style="color:var(--ok)">On my team</span> <button class="btn undo" onclick="undoPlayer(${p.id})">undo</button>`;
+    else if(st==='other') statusCell = `<span class="small">Drafted (other)</span> <button class="btn undo" onclick="undoPlayer(${p.id})">undo</button>`;
+    else statusCell = `<div class="btnrow">
+        <button class="btn me" onclick="draftPlayer(${p.id},'me')">Me</button>
+        <button class="btn other" onclick="draftPlayer(${p.id},'other')">Taken</button>
+      </div>`;
+    return `<tr class="${rowClass}">
+      <td><input class="rankedit" type="number" value="${p.rank}" onchange="editRank(${p.id}, this.value)" /></td>
+      <td>${p.name}</td>
+      <td><span class="pill ${p.pos}">${p.pos}</span></td>
+      <td class="small">${p.team}</td>
+      <td>${statusCell}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderAll(){ renderRoster(); renderStats(); renderRecs(); renderTable(); }
+
+/* ---------- Actions ---------- */
+function draftPlayer(id, who){
+  state.status[id] = who;
+  saveState(); renderAll();
+}
+function undoPlayer(id){
+  delete state.status[id];
+  saveState(); renderAll();
+}
+function editRank(id, val){
+  const p = players.find(p=>p.id===id);
+  if(p){ p.rank = Number(val)||p.rank; renderAll(); }
+}
+
+document.getElementById('search').addEventListener('input', renderTable);
+document.getElementById('hideTaken').addEventListener('change', renderTable);
+document.querySelectorAll('.postab').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.postab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    activePos = btn.dataset.pos;
+    renderTable();
+  });
+});
+document.querySelectorAll('thead th[data-sort]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.dataset.sort;
+    if(sortKey===key) sortDir*=-1; else { sortKey=key; sortDir=1; }
+    renderTable();
+  });
+});
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(confirm('Reset the entire draft board? This clears all picks (yours and others).')){
+    state = {status:{}};
+    saveState(); renderAll();
+  }
+});
+document.getElementById('addPlayerBtn').addEventListener('click', ()=>{
+  const name = prompt('Player name:');
+  if(!name) return;
+  const pos = (prompt('Position (QB/RB/WR/TE/K/DEF/IDP):')||'').toUpperCase();
+  if(!CURVE[pos]){ alert('Invalid position'); return; }
+  const team = prompt('Team abbreviation:') || '';
+  const rank = players.filter(p=>p.pos===pos).length + 1;
+  players.push(mk(name,pos,team,rank));
+  renderAll();
+});
+
+renderAll();
+</script>
+</body>
+</html>
